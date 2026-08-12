@@ -36,7 +36,7 @@ Featuring official College Board domain quota distributions, dynamic adaptive mo
 ## 🛠️ Tech Stack & Architecture
 
 - **Backend**: Python 3.10+, FastAPI, Uvicorn
-- **Database**: SQLite3 with WAL (Write-Ahead Logging) mode, Foreign Keys, and FTS5 Virtual Tables
+- **Database**: SQLite3 by default; persistent PostgreSQL when `DATABASE_URL` is configured
 - **Frontend**: HTML5, Vanilla CSS, TailwindCSS, JavaScript (ES6+)
 - **Libraries**: KaTeX (Math rendering), Marked.js (Markdown parsing), Lucide (Icons), PyPDF (PDF ingestion)
 - **Testing**: Python `unittest` test suite
@@ -76,9 +76,16 @@ Run the setup script to automatically initialize the SQLite database schema and 
 ```bash
 python run.py
 ```
-*(Optional)* To pull the full 1,500+ question dataset directly from OpenSAT, run the ingestion script:
+The complete OpenSAT English and Math question bank is ingested automatically
+on the first application startup. The import is idempotent; to run it manually:
 ```bash
-python ingest_opensat.py
+python scripts/fetch_opensat_data.py
+```
+
+SQLite is used when no database environment variable is configured. For a
+persistent PostgreSQL deployment, set:
+```bash
+export DATABASE_URL="postgresql://user:password@host:5432/database"
 ```
 
 ---
@@ -116,17 +123,17 @@ What's already configured:
 - **`api/index.py`** — explicit Vercel entrypoint shim (re-exports the FastAPI
   `app` from `app/main.py`).
 - **`vercel.json`** — bumps the function `maxDuration` to 60s for cold starts.
-- **Serverless-safe SQLite** — `app/config.py` detects the read-only serverless
-  filesystem and points the database at `/tmp/sat_lab.db` (only `/tmp` is
-  writable in a Vercel function). The database is seeded automatically on cold
-  start, so the question bank/vocab are always populated.
+- **Persistent PostgreSQL support** — set `DATABASE_URL` to a hosted Postgres
+  database (such as Neon). Without it, `app/config.py` falls back to SQLite and
+  uses `/tmp/sat_lab.db` on Vercel's read-only serverless filesystem.
+- **Automatic OpenSAT import** — the complete English and Math bank is fetched
+  from the public OpenSAT API on first startup, with hash-based deduplication.
 - **Favicon** — `app/static/favicon.ico` + `favicon.png` served at `/favicon.ico`
   and `/favicon.png`, with `<link rel="icon">` tags in `app/templates/base.html`.
 
-> ⚠️ **Note:** Vercel function storage is ephemeral — user practice sessions,
-> attempts, and SM-2 progress reset on each cold start. For persistent user
-> data, point `DB_PATH` (env var) at a hosted SQLite/SQL service (e.g. Turso,
-> Neon, or a Postgres provider).
+> ⚠️ **Note:** Vercel function storage is ephemeral when `DATABASE_URL` is not
+> configured, so SQLite-backed sessions and progress reset on cold starts. Use
+> a hosted PostgreSQL database for persistence.
 
 ---
 
@@ -138,7 +145,7 @@ To execute the full automated test suite (verifying SM-2 calculations, adaptive 
 python run_tests.py
 ```
 
-All 18 automated unit and integration tests should pass with an `OK` status.
+All 43 automated unit and integration tests should pass with an `OK` status.
 
 ---
 
@@ -152,7 +159,7 @@ SAT-Study-Lab/
 │   ├── static/            # Frontend CSS styles, JS modules, assets, favicon
 │   ├── templates/         # Jinja2 HTML views (papers, question bank, courses, vocab)
 │   ├── config.py          # App configurations
-│   ├── database.py        # SQLite connection manager & FTS5 schema init
+│   ├── database.py        # SQLite/PostgreSQL connection manager and schemas
 │   └── main.py            # FastAPI main app instance
 ├── api/
 │   └── index.py           # Vercel serverless entrypoint (FastAPI shim)

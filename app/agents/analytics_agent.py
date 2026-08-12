@@ -41,7 +41,7 @@ class AnalyticsAgent:
                 COALESCE(SUM(CASE WHEN ua.is_correct = 1 THEN 1 ELSE 0 END), 0) as correct
             FROM user_attempts ua
             JOIN questions q ON ua.question_id = q.id
-            WHERE q.section = 'Reading and Writing'
+            WHERE q.section = 'Reading & Writing'
         """).fetchone()
         
         rw_total = rw_attempts_row['total'] if rw_attempts_row else 0
@@ -107,7 +107,10 @@ class AnalyticsAgent:
             FROM user_attempts ua
             JOIN questions q ON ua.question_id = q.id
             GROUP BY q.section, q.topic
-            HAVING (CAST(correct_attempts AS FLOAT) / total_attempts) < 0.70
+            HAVING (
+                CAST(SUM(CASE WHEN ua.is_correct = 1 THEN 1 ELSE 0 END) AS FLOAT)
+                / COUNT(*)
+            ) < 0.70
         """).fetchall()
         
         weak_areas = []

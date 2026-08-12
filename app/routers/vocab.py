@@ -2,7 +2,7 @@ import json
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from app.database import get_db
+from app.database import get_db, is_postgres
 from app.agents.vocab_agent import VocabAgent
 
 router = APIRouter(prefix="/api/vocab", tags=["Vocab"])
@@ -33,14 +33,29 @@ async def list_vocab(
         where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
         
         if q:
-            sql = f"""
-                SELECT v.* FROM vocab_terms v
-                JOIN vocab_fts fts ON v.id = fts.vocab_id
-                {where_sql} AND vocab_fts MATCH ?
-                ORDER BY v.word ASC
-                LIMIT ? OFFSET ?
-            """
-            params.extend([q, per_page, offset])
+            if is_postgres():
+                search_clause = """(
+                    word ILIKE ? OR definition ILIKE ?
+                    OR roots_prefixes_suffixes ILIKE ?
+                )"""
+                prefix = f"{where_sql} AND" if where_sql else "WHERE"
+                sql = f"""
+                    SELECT * FROM vocab_terms
+                    {prefix} {search_clause}
+                    ORDER BY word ASC
+                    LIMIT ? OFFSET ?
+                """
+                params.extend([f"%{q}%"] * 3 + [per_page, offset])
+            else:
+                prefix = f"{where_sql} AND" if where_sql else "WHERE"
+                sql = f"""
+                    SELECT v.* FROM vocab_terms v
+                    JOIN vocab_fts fts ON v.id = fts.vocab_id
+                    {prefix} vocab_fts MATCH ?
+                    ORDER BY v.word ASC
+                    LIMIT ? OFFSET ?
+                """
+                params.extend([q, per_page, offset])
         else:
             sql = f"""
                 SELECT * FROM vocab_terms
@@ -74,7 +89,22 @@ async def list_vocab(
             t_dict['sentence_completion_drill'] = safe_json(r['sentence_completion_drill'])
             terms.append(t_dict)
 
-        total_count = cursor.execute(f"SELECT COUNT(*) FROM vocab_terms {where_sql}", params[:len(where_clauses)]).fetchone()[0]
+        if q and is_postgres():
+            count_prefix = f"{where_sql} AND" if where_sql else "WHERE"
+            count_sql = f"SELECT COUNT(*) FROM vocab_terms {count_prefix} {search_clause}"
+            count_params = params[:len(where_clauses)] + [f"%{q}%"] * 3
+        elif q:
+            count_prefix = f"{where_sql} AND" if where_sql else "WHERE"
+            count_sql = f"""
+                SELECT COUNT(*) FROM vocab_terms v
+                JOIN vocab_fts fts ON v.id = fts.vocab_id
+                {count_prefix} vocab_fts MATCH ?
+            """
+            count_params = params[:len(where_clauses)] + [q]
+        else:
+            count_sql = f"SELECT COUNT(*) FROM vocab_terms {where_sql}"
+            count_params = params[:len(where_clauses)]
+        total_count = cursor.execute(count_sql, count_params).fetchone()[0]
 
     return {
         "terms": terms,

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, List
-from app.database import get_db
+from app.database import get_db, is_postgres
 from app.agents.ingestion import IngestionAgent
 from app.agents.normalization import NormalizationAgent
 
@@ -36,19 +36,39 @@ async def list_questions(
         where_sql = " AND ".join(where_clauses)
         
         if q:
-            # FTS search
-            sql = f"""
-                SELECT DISTINCT q.*, p.title as passage_title, p.content as passage_content
-                FROM questions q
-                JOIN questions_fts fts ON q.id = fts.question_id
-                LEFT JOIN passages p ON q.passage_id = p.id
-                WHERE {where_sql} AND questions_fts MATCH ?
-                ORDER BY q.created_at DESC
-                LIMIT ? OFFSET ?
-            """
-            exec_params = filter_params + [q, per_page, offset]
-            count_sql = f"SELECT COUNT(DISTINCT q.id) FROM questions q JOIN questions_fts fts ON q.id = fts.question_id WHERE {where_sql} AND questions_fts MATCH ?"
-            count_params = filter_params + [q]
+            if is_postgres():
+                # PostgreSQL uses an indexed-friendly text search fallback; no
+                # SQLite-only FTS virtual tables are required in production.
+                search_sql = """(
+                    q.prompt ILIKE ? OR q.answer_explanation ILIKE ?
+                    OR q.topic ILIKE ? OR q.subtopic ILIKE ?
+                )"""
+                search_params = [f"%{q}%"] * 4
+                sql = f"""
+                    SELECT q.*, p.title as passage_title, p.content as passage_content
+                    FROM questions q
+                    LEFT JOIN passages p ON q.passage_id = p.id
+                    WHERE {where_sql} AND {search_sql}
+                    ORDER BY q.created_at DESC
+                    LIMIT ? OFFSET ?
+                """
+                exec_params = filter_params + search_params + [per_page, offset]
+                count_sql = f"SELECT COUNT(*) FROM questions q WHERE {where_sql} AND {search_sql}"
+                count_params = filter_params + search_params
+            else:
+                # SQLite's FTS5 virtual table provides fast local search.
+                sql = f"""
+                    SELECT DISTINCT q.*, p.title as passage_title, p.content as passage_content
+                    FROM questions q
+                    JOIN questions_fts fts ON q.id = fts.question_id
+                    LEFT JOIN passages p ON q.passage_id = p.id
+                    WHERE {where_sql} AND questions_fts MATCH ?
+                    ORDER BY q.created_at DESC
+                    LIMIT ? OFFSET ?
+                """
+                exec_params = filter_params + [q, per_page, offset]
+                count_sql = f"SELECT COUNT(DISTINCT q.id) FROM questions q JOIN questions_fts fts ON q.id = fts.question_id WHERE {where_sql} AND questions_fts MATCH ?"
+                count_params = filter_params + [q]
         else:
             sql = f"""
                 SELECT q.*, p.title as passage_title, p.content as passage_content
@@ -83,7 +103,7 @@ async def list_questions(
 
 @router.post("/ingest/opensat")
 async def ingest_opensat():
-    """Trigger ingestion of OpenSAT public dataset into SQLite."""
+    """Trigger idempotent ingestion of the complete OpenSAT public dataset."""
     stats = ingestion_agent.from_opensat_api()
     return {"status": "success", **stats}
 
