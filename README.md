@@ -127,17 +127,6 @@ SAT-Study-Lab/
 └── README.md              # Documentation
 ```
 
----
-
-## 🌐 Deployment Guidelines
-
-- **Render / Railway / Fly.io (Recommended)**:
-  Deploy directly as a Python Web Service. Attach a **Persistent Disk/Volume** mapped to the directory containing `sat_lab.db` so database changes persist across server restarts.
-- **Vercel / AWS Lambda**:
-  Serverless platforms use ephemeral file systems. If deploying to Vercel, replace SQLite with a hosted cloud database provider (e.g., Supabase, Neon PostgreSQL, or Vercel Postgres).
-
----
-
 ## 📄 License
 
 This project is open-source under the [MIT License](LICENSE).
