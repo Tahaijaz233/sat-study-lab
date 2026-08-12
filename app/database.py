@@ -33,7 +33,13 @@ except ImportError:
     PSYCOPG2_AVAILABLE = False
 
 def get_postgres_connection():
-    """Get a PostgreSQL connection using psycopg2."""
+    """Get a PostgreSQL connection using psycopg2.
+    
+    For Vercel serverless deployments:
+    - Connections are created per-invocation (no connection pooling in app)
+    - Neon's connection pooler handles the pooling at the database level
+    - Set connect_timeout to fail fast on cold starts
+    """
     if not PSYCOPG2_AVAILABLE:
         raise ImportError("psycopg2 is required for PostgreSQL. Install with: pip install psycopg2-binary")
     
@@ -41,12 +47,14 @@ def get_postgres_connection():
     if not params:
         raise ValueError(f"Invalid PostgreSQL URL: {config.DATABASE_URL}")
     
+    # Vercel serverless: connect quickly, fail fast
     conn = psycopg2.connect(
         host=params["host"],
         port=params["port"],
         database=params["dbname"],
         user=params["user"],
-        password=params["password"]
+        password=params["password"],
+        connect_timeout=5  # Fail fast if DB is unreachable
     )
     conn.autocommit = False
     return PostgresConnectionWrapper(conn)

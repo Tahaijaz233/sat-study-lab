@@ -1,0 +1,54 @@
+# Files to exclude from Vercel deployment
+
+# Git
+.git/
+.gitignore
+
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+venv/
+.env
+.env.local
+.venv/
+
+# Database files (SQLite - won't persist on Vercel anyway)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Tests (not needed in production)
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local config
+*.log
+tmp/
+temp/
+
+# Docker (not used on Vercel)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Fly.io (not used on Vercel)
+fly.toml
+
+# OS files
+.DS_Store
+Thumbs.db
