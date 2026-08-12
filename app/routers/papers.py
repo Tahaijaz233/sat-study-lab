@@ -3,7 +3,7 @@ import datetime
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-from app.database import get_db
+from app.database import get_db, is_postgres
 from app.agents.paper_builder import PaperBuilderAgent
 
 router = APIRouter(prefix="/api/papers", tags=["Papers"])
@@ -27,6 +27,14 @@ class DrillRequest(BaseModel):
     section: str
     num_questions: int = 10
 
+def _param_placeholder(value):
+    """Return parameterized placeholder based on DB type."""
+    return "%s" if is_postgres() else "?"
+
+def _build_params(placeholders, values):
+    """Build parameter list matching placeholders."""
+    return values
+
 @router.post("/sessions")
 async def create_practice_session(req: SessionCreateRequest):
     session_id = f"sess_{uuid.uuid4().hex[:10]}"
@@ -42,9 +50,10 @@ async def create_practice_session(req: SessionCreateRequest):
     
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        ph = _param_placeholder("x")
+        cursor.execute(f"""
             INSERT INTO practice_sessions (id, title, section, session_type, total_questions, time_limit_seconds, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'in_progress')
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, 'in_progress')
         """, (session_id, req.title, req.section, req.session_type, total_q, time_limit))
         
     return {
@@ -57,10 +66,11 @@ async def create_practice_session(req: SessionCreateRequest):
 
 def fetch_detailed_questions(cursor, q_ids):
     detailed = []
+    ph = _param_placeholder("x")
     for qid in q_ids:
         # Explicitly select only the fields safe to expose to students
         # Exclude answer_explanation and correct_answer_value
-        row = cursor.execute("""
+        row = cursor.execute(f"""
             SELECT 
                 q.id, q.passage_id, q.section, q.topic, q.subtopic,
                 q.question_type, q.difficulty, q.prompt, q.source_name,
@@ -69,11 +79,11 @@ def fetch_detailed_questions(cursor, q_ids):
                 p.title as passage_title, p.content as passage_content
             FROM questions q
             LEFT JOIN passages p ON q.passage_id = p.id
-            WHERE q.id = ?
+            WHERE q.id = {ph}
         """, (qid,)).fetchone()
         if row:
             q_dict = dict(row)
-            choices = cursor.execute("SELECT id, choice_letter, content FROM choices WHERE question_id = ? ORDER BY choice_letter", (qid,)).fetchall()
+            choices = cursor.execute(f"SELECT id, choice_letter, content FROM choices WHERE question_id = {ph} ORDER BY choice_letter", (qid,)).fetchall()
             q_dict['choices'] = [{"id": c["id"], "choice_letter": c["choice_letter"], "content": c["content"]} for c in choices]
             detailed.append(q_dict)
     return detailed
@@ -83,7 +93,8 @@ async def next_module(session_id: str):
     with get_db() as conn:
         cursor = conn.cursor()
         
-        session_row = cursor.execute("SELECT * FROM practice_sessions WHERE id = ?", (session_id,)).fetchone()
+        ph = _param_placeholder("x")
+        session_row = cursor.execute(f"SELECT * FROM practice_sessions WHERE id = {ph}", (session_id,)).fetchone()
         if not session_row:
             raise HTTPException(status_code=404, detail="Session not found")
             
@@ -91,11 +102,11 @@ async def next_module(session_id: str):
             return {"completed": True, "score_scaled": session_row['score_scaled']}
             
         # Get all attempts
-        attempts = cursor.execute("""
+        attempts = cursor.execute(f"""
             SELECT a.*, q.section
             FROM user_attempts a
             JOIN questions q ON a.question_id = q.id
-            WHERE a.session_id = ?
+            WHERE a.session_id = {ph}
             ORDER BY a.created_at ASC
         """, (session_id,)).fetchall()
         
@@ -175,7 +186,7 @@ async def next_module(session_id: str):
             time_limit = limit * 90
             
             # Fetch random questions matching topic/subtopic
-            rows = cursor.execute("SELECT id FROM questions WHERE topic = ? AND subtopic = ? ORDER BY RANDOM() LIMIT ?", (topic, subtopic, limit)).fetchall()
+            rows = cursor.execute(f"SELECT id FROM questions WHERE topic = {ph} AND subtopic = {ph} ORDER BY RANDOM() LIMIT {ph}", (topic, subtopic, limit)).fetchall()
             q_ids = [r['id'] for r in rows]
             
             # If no questions found, complete immediately to avoid error
@@ -193,7 +204,8 @@ async def next_module(session_id: str):
 
 async def complete_session_internal(cursor, session_id, session_row):
     completed_at = datetime.datetime.now().isoformat()
-    attempts = cursor.execute("SELECT is_correct FROM user_attempts WHERE session_id = ?", (session_id,)).fetchall()
+    ph = _param_placeholder("x")
+    attempts = cursor.execute(f"SELECT is_correct FROM user_attempts WHERE session_id = {ph}", (session_id,)).fetchall()
     
     total = len(attempts)
     correct = sum(1 for a in attempts if a['is_correct'] == 1)
@@ -203,10 +215,10 @@ async def complete_session_internal(cursor, session_id, session_row):
     if session_row['section'] == 'Full Test':
         scaled_score = 400 + int(accuracy * 1200) if total > 0 else 400
         
-    cursor.execute("""
+    cursor.execute(f"""
         UPDATE practice_sessions 
-        SET status = 'completed', score_scaled = ?, completed_at = ?
-        WHERE id = ?
+        SET status = 'completed', score_scaled = {ph}, completed_at = {ph}
+        WHERE id = {ph}
     """, (scaled_score, completed_at, session_id))
     
     return {
@@ -221,26 +233,27 @@ async def submit_answer(session_id: str, req: AnswerSubmitRequest):
     with get_db() as conn:
         cursor = conn.cursor()
         
+        ph = _param_placeholder("x")
         # Verify question and check if correct
-        q_row = cursor.execute("SELECT correct_answer_value, question_type FROM questions WHERE id = ?", (req.question_id,)).fetchone()
+        q_row = cursor.execute(f"SELECT correct_answer_value, question_type FROM questions WHERE id = {ph}", (req.question_id,)).fetchone()
         if not q_row:
             raise HTTPException(status_code=404, detail="Question not found")
             
         # Delete existing attempt if any
-        cursor.execute("DELETE FROM user_attempts WHERE session_id = ? AND question_id = ?", (session_id, req.question_id))
+        cursor.execute(f"DELETE FROM user_attempts WHERE session_id = {ph} AND question_id = {ph}", (session_id, req.question_id))
         
         is_correct = 0
         if q_row['question_type'] == 'Multiple Choice' and req.selected_choice_id:
-            c_row = cursor.execute("SELECT is_correct FROM choices WHERE id = ?", (req.selected_choice_id,)).fetchone()
+            c_row = cursor.execute(f"SELECT is_correct FROM choices WHERE id = {ph}", (req.selected_choice_id,)).fetchone()
             if c_row and c_row['is_correct']:
                 is_correct = 1
         elif q_row['question_type'] == 'Student-Produced Response' and req.student_produced_answer:
             if req.student_produced_answer.strip() == (q_row['correct_answer_value'] or '').strip():
                 is_correct = 1
 
-        cursor.execute("""
+        cursor.execute(f"""
             INSERT INTO user_attempts (session_id, question_id, selected_choice_id, student_produced_answer, is_correct, time_spent_seconds, bookmarked)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
         """, (session_id, req.question_id, req.selected_choice_id, req.student_produced_answer, is_correct, req.time_spent_seconds, 1 if req.bookmarked else 0))
 
     return {"status": "success", "is_correct": is_correct}
@@ -249,7 +262,8 @@ async def submit_answer(session_id: str, req: AnswerSubmitRequest):
 async def complete_session_manual(session_id: str):
     with get_db() as conn:
         cursor = conn.cursor()
-        session_row = cursor.execute("SELECT * FROM practice_sessions WHERE id = ?", (session_id,)).fetchone()
+        ph = _param_placeholder("x")
+        session_row = cursor.execute(f"SELECT * FROM practice_sessions WHERE id = {ph}", (session_id,)).fetchone()
         if not session_row:
             raise HTTPException(status_code=404, detail="Session not found")
         return await complete_session_internal(cursor, session_id, session_row)
@@ -269,20 +283,15 @@ async def create_drill_session(req: DrillRequest):
     with get_db() as conn:
         cursor = conn.cursor()
         
+        ph = _param_placeholder("x")
         # Check if enough questions exist
-        count_row = cursor.execute("SELECT count(*) as cnt FROM questions WHERE topic = ? AND subtopic = ?", (req.topic, req.subtopic)).fetchone()
+        count_row = cursor.execute(f"SELECT count(*) as cnt FROM questions WHERE topic = {ph} AND subtopic = {ph}", (req.topic, req.subtopic)).fetchone()
         if count_row['cnt'] == 0:
             raise HTTPException(status_code=404, detail="No questions found for this topic.")
             
-        # We will set session_type to 'drill_topic_subtopic' so next_module knows what to do,
-        # but our current next_module is hardcoded for 'Reading & Writing'/'Math'/'Full Test'.
-        # For simplicity, we can insert it as a 'practice' session but we need a way to serve the questions.
-        # Actually, if we just create a session and we need next_module to serve these 10 questions.
-        # Let's modify the session_type to include 'drill' so next_module handles it.
-        
-        cursor.execute("""
+        cursor.execute(f"""
             INSERT INTO practice_sessions (id, title, section, session_type, total_questions, time_limit_seconds, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'in_progress')
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, 'in_progress')
         """, (session_id, f"Drill: {req.subtopic}", req.section, f"drill|{req.topic}|{req.subtopic}", req.num_questions, time_limit))
         
     return {
@@ -291,4 +300,3 @@ async def create_drill_session(req: DrillRequest):
         "section": req.section,
         "total_questions": req.num_questions
     }
-

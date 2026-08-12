@@ -1,3 +1,5 @@
+from app.database import is_postgres
+
 class PaperBuilderAgent:
     """
     Builds Digital SAT practice modules with strict adherence to official
@@ -22,6 +24,15 @@ class PaperBuilderAgent:
 
     ACCURACY_THRESHOLD = 0.65
 
+    def _ph(self, value=None):
+        """Return parameterized placeholder based on DB type."""
+        return "%s" if is_postgres() else "?"
+    
+    def _join_ph(self, count):
+        """Join N placeholders with commas."""
+        ph = self._ph()
+        return ", ".join([ph] * count)
+    
     def _get_difficulty_band(self, difficulty: str) -> list:
         """Map a difficulty routing label to the DB difficulty values."""
         if difficulty == 'easy':
@@ -38,26 +49,27 @@ class PaperBuilderAgent:
         Uses LIKE matching to handle minor topic name variants (e.g. hyphenated vs non-hyphenated).
         Falls back to broader difficulty if not enough questions are available.
         """
-        diff_placeholders = ','.join('?' * len(diff_band))
+        ph = self._ph()
+        diff_placeholders = self._join_ph(len(diff_band))
         
         # Replace spaces with % to flexibly match hyphens and spaces
         flex_topic = f"%{topic.replace('-', ' ').replace(' ', '%')}%"
 
         sql = f"""
             SELECT id FROM questions
-            WHERE section = ?
-              AND topic LIKE ?
+            WHERE section = {ph}
+              AND topic LIKE {ph}
               AND import_status = 'active'
               AND difficulty IN ({diff_placeholders})
         """
         params = [section, flex_topic] + diff_band
 
         if exclude_ids:
-            excl_placeholders = ','.join('?' * len(exclude_ids))
+            excl_placeholders = self._join_ph(len(exclude_ids))
             sql += f" AND id NOT IN ({excl_placeholders})"
             params.extend(exclude_ids)
 
-        sql += " ORDER BY RANDOM() LIMIT ?"
+        sql += f" ORDER BY RANDOM() LIMIT {ph}"
         params.append(count)
 
         rows = cursor.execute(sql, params).fetchall()
@@ -71,18 +83,18 @@ class PaperBuilderAgent:
 
             fallback_sql = """
                 SELECT id FROM questions
-                WHERE section = ?
-                  AND topic LIKE ?
+                WHERE section = %s
+                  AND topic LIKE %s
                   AND import_status = 'active'
             """
             fallback_params = [section, flex_topic]
 
             if already_picked:
-                fb_excl = ','.join('?' * len(already_picked))
+                fb_excl = self._join_ph(len(already_picked))
                 fallback_sql += f" AND id NOT IN ({fb_excl})"
                 fallback_params.extend(already_picked)
 
-            fallback_sql += " ORDER BY RANDOM() LIMIT ?"
+            fallback_sql += f" ORDER BY RANDOM() LIMIT {ph}"
             fallback_params.append(shortfall)
 
             fallback_rows = cursor.execute(fallback_sql, fallback_params).fetchall()
@@ -116,8 +128,9 @@ class PaperBuilderAgent:
         """Calculate accuracy for a set of question IDs within a session."""
         if not question_ids:
             return 0.0
-        placeholders = ','.join('?' * len(question_ids))
-        sql = f"SELECT is_correct FROM user_attempts WHERE session_id = ? AND question_id IN ({placeholders})"
+        ph = self._ph()
+        placeholders = self._join_ph(len(question_ids))
+        sql = f"SELECT is_correct FROM user_attempts WHERE session_id = {ph} AND question_id IN ({placeholders})"
         params = [session_id] + question_ids
         attempts = cursor.execute(sql, params).fetchall()
         total = len(attempts)

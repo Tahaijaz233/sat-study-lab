@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, List
-from app.database import get_db
+from app.database import get_db, is_postgres
 from app.agents.ingestion import IngestionAgent
 from app.agents.normalization import NormalizationAgent
 
@@ -45,19 +45,35 @@ async def list_questions(
         """
         
         if q:
-            # FTS search
-            sql = f"""
-                SELECT DISTINCT {safe_question_cols}, p.title as passage_title, p.content as passage_content
-                FROM questions q
-                JOIN questions_fts fts ON q.id = fts.question_id
-                LEFT JOIN passages p ON q.passage_id = p.id
-                WHERE {where_sql} AND questions_fts MATCH ?
-                ORDER BY q.created_at DESC
-                LIMIT ? OFFSET ?
-            """
-            exec_params = filter_params + [q, per_page, offset]
-            count_sql = f"SELECT COUNT(DISTINCT q.id) FROM questions q JOIN questions_fts fts ON q.id = fts.question_id WHERE {where_sql} AND questions_fts MATCH ?"
-            count_params = filter_params + [q]
+            # Full-text search - works for both SQLite (FTS5) and PostgreSQL (tsvector)
+            if is_postgres():
+                # PostgreSQL uses tsvector with @@ operator
+                search_sql = """
+                    SELECT DISTINCT {safe_question_cols}, p.title as passage_title, p.content as passage_content
+                    FROM questions q
+                    LEFT JOIN passages p ON q.passage_id = p.id
+                    WHERE {where_sql} AND q.search_vector @@ to_tsquery('english', %s)
+                    ORDER BY q.created_at DESC
+                    LIMIT %s OFFSET %s
+                """.format(safe_question_cols=safe_question_cols, where_sql=where_sql)
+                exec_params = filter_params + [q, per_page, offset]
+                count_sql = f"SELECT COUNT(DISTINCT q.id) FROM questions q LEFT JOIN passages p ON q.passage_id = p.id WHERE {where_sql} AND q.search_vector @@ to_tsquery('english', %s)"
+                count_params = filter_params + [q]
+            else:
+                # SQLite uses FTS5 MATCH
+                search_sql = f"""
+                    SELECT DISTINCT {safe_question_cols}, p.title as passage_title, p.content as passage_content
+                    FROM questions q
+                    JOIN questions_fts fts ON q.id = fts.question_id
+                    LEFT JOIN passages p ON q.passage_id = p.id
+                    WHERE {where_sql} AND questions_fts MATCH ?
+                    ORDER BY q.created_at DESC
+                    LIMIT ? OFFSET ?
+                """
+                exec_params = filter_params + [q, per_page, offset]
+                count_sql = f"SELECT COUNT(DISTINCT q.id) FROM questions q JOIN questions_fts fts ON q.id = fts.question_id WHERE {where_sql} AND questions_fts MATCH ?"
+                count_params = filter_params + [q]
+            
         else:
             sql = f"""
                 SELECT {safe_question_cols}, p.title as passage_title, p.content as passage_content
@@ -70,17 +86,28 @@ async def list_questions(
             exec_params = filter_params + [per_page, offset]
             count_sql = f"SELECT COUNT(*) FROM questions q WHERE {where_sql}"
             count_params = filter_params
-            
-        rows = cursor.execute(sql, exec_params).fetchall()
+        
+        if q and is_postgres():
+            rows = cursor.execute(search_sql, exec_params).fetchall()
+        elif q:
+            rows = cursor.execute(search_sql, exec_params).fetchall()
+        else:
+            rows = cursor.execute(sql, exec_params).fetchall()
         
         questions = []
         for r in rows:
             q_dict = dict(r)
-            choices = cursor.execute("SELECT id, choice_letter, content FROM choices WHERE question_id = ? ORDER BY choice_letter", (r['id'],)).fetchall()
+            if is_postgres():
+                choices = cursor.execute("SELECT id, choice_letter, content FROM choices WHERE question_id = %s ORDER BY choice_letter", (r['id'],)).fetchall()
+            else:
+                choices = cursor.execute("SELECT id, choice_letter, content FROM choices WHERE question_id = ? ORDER BY choice_letter", (r['id'],)).fetchall()
             q_dict['choices'] = [{"id": c["id"], "choice_letter": c["choice_letter"], "content": c["content"]} for c in choices]
             questions.append(q_dict)
             
-        total_count = cursor.execute(count_sql, count_params).fetchone()[0]
+        if is_postgres():
+            total_count = cursor.execute(count_sql, count_params).fetchone()[0]
+        else:
+            total_count = cursor.execute(count_sql, count_params).fetchone()[0]
 
     return {
         "questions": questions,
@@ -101,23 +128,37 @@ async def get_question(question_id: str):
         cursor = conn.cursor()
         # Explicitly select only the fields safe to expose to students
         # Exclude answer_explanation and correct_answer_value
-        row = cursor.execute("""
-            SELECT 
-                q.id, q.passage_id, q.section, q.topic, q.subtopic,
-                q.question_type, q.difficulty, q.prompt, q.source_name,
-                q.source_uri, q.import_status, q.license_notes, q.content_hash,
-                q.created_at,
-                p.title as passage_title, p.content as passage_content
-            FROM questions q
-            LEFT JOIN passages p ON q.passage_id = p.id
-            WHERE q.id = ?
-        """, (question_id,)).fetchone()
+        if is_postgres():
+            row = cursor.execute("""
+                SELECT 
+                    q.id, q.passage_id, q.section, q.topic, q.subtopic,
+                    q.question_type, q.difficulty, q.prompt, q.source_name,
+                    q.source_uri, q.import_status, q.license_notes, q.content_hash,
+                    q.created_at,
+                    p.title as passage_title, p.content as passage_content
+                FROM questions q
+                LEFT JOIN passages p ON q.passage_id = p.id
+                WHERE q.id = %s
+            """, (question_id,)).fetchone()
+            choices = cursor.execute("SELECT id, choice_letter, content FROM choices WHERE question_id = %s ORDER BY choice_letter", (question_id,)).fetchall()
+        else:
+            row = cursor.execute("""
+                SELECT 
+                    q.id, q.passage_id, q.section, q.topic, q.subtopic,
+                    q.question_type, q.difficulty, q.prompt, q.source_name,
+                    q.source_uri, q.import_status, q.license_notes, q.content_hash,
+                    q.created_at,
+                    p.title as passage_title, p.content as passage_content
+                FROM questions q
+                LEFT JOIN passages p ON q.passage_id = p.id
+                WHERE q.id = ?
+            """, (question_id,)).fetchone()
+            choices = cursor.execute("SELECT id, choice_letter, content FROM choices WHERE question_id = ? ORDER BY choice_letter", (question_id,)).fetchall()
         
         if not row:
             raise HTTPException(status_code=404, detail="Question not found")
             
         q_dict = dict(row)
-        choices = cursor.execute("SELECT id, choice_letter, content FROM choices WHERE question_id = ? ORDER BY choice_letter", (question_id,)).fetchall()
         q_dict['choices'] = [{"id": c["id"], "choice_letter": c["choice_letter"], "content": c["content"]} for c in choices]
         return q_dict
 
