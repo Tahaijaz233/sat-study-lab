@@ -58,16 +58,23 @@ async def create_practice_session(req: SessionCreateRequest):
 def fetch_detailed_questions(cursor, q_ids):
     detailed = []
     for qid in q_ids:
+        # Explicitly select only the fields safe to expose to students
+        # Exclude answer_explanation and correct_answer_value
         row = cursor.execute("""
-            SELECT q.*, p.title as passage_title, p.content as passage_content
+            SELECT 
+                q.id, q.passage_id, q.section, q.topic, q.subtopic,
+                q.question_type, q.difficulty, q.prompt, q.source_name,
+                q.source_uri, q.import_status, q.license_notes, q.content_hash,
+                q.created_at,
+                p.title as passage_title, p.content as passage_content
             FROM questions q
             LEFT JOIN passages p ON q.passage_id = p.id
             WHERE q.id = ?
         """, (qid,)).fetchone()
         if row:
             q_dict = dict(row)
-            choices = cursor.execute("SELECT * FROM choices WHERE question_id = ? ORDER BY choice_letter", (qid,)).fetchall()
-            q_dict['choices'] = [dict(c) for c in choices]
+            choices = cursor.execute("SELECT id, choice_letter, content FROM choices WHERE question_id = ? ORDER BY choice_letter", (qid,)).fetchall()
+            q_dict['choices'] = [{"id": c["id"], "choice_letter": c["choice_letter"], "content": c["content"]} for c in choices]
             detailed.append(q_dict)
     return detailed
 
