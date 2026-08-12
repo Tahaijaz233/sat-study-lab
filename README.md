@@ -115,210 +115,93 @@ SAT-Study-Lab/
 │   ├── routers/           # FastAPI API endpoints (questions, papers, vocab, analytics)
 │   ├── static/            # Frontend CSS styles, JS modules, assets
 │   ├── templates/         # Jinja2 HTML views (papers, question bank, courses, vocab)
-│   ├── config.py          # App configurations
-│   ├── database.py        # SQLite connection manager & FTS5 schema init
+│   ├── config.py          # App configurations (reads DATABASE_URL env var if set)
+│   ├── database.py        # Database connection manager (SQLite or PostgreSQL)
 │   └── main.py            # FastAPI main app instance
+├── api/
+│   └── index.py           # Vercel serverless handler (Mangum wrapper for FastAPI)
 ├── ingest_opensat.py      # OpenSAT API dataset fetcher & parser
 ├── seed_courses.py        # Course content curriculum seeder
 ├── seed_data.py           # Core vocabulary & initial question seeder
 ├── run.py                 # Startup script & Uvicorn dev server
 ├── run_tests.py           # Test runner for unittest suite
 ├── requirements.txt       # Python dependencies
+├── vercel.json            # Vercel deployment configuration (optional)
 └── README.md              # Documentation
 ```
+
+**Key Files for Local Use:**
+- `run.py` — Start the app locally
+- `requirements.txt` — Install dependencies
+- `app/config.py` — Set `DATABASE_URL` env var for PostgreSQL (optional, defaults to SQLite)
 
 ---
 
 ## 🌐 Deployment Guidelines
 
-### Vercel + Neon PostgreSQL (Recommended for Production)
+### Running Locally (Default & Recommended for Personal Use)
 
-This is the recommended deployment stack for production use:
-
-- **Vercel**: Hosts the FastAPI application as serverless functions (auto-scaling, no server management)
-- **Neon PostgreSQL**: Hosted serverless PostgreSQL database (free tier, no expiration, connection pooling built-in)
-
-#### ⚠️ Important Vercel Constraints
-- **10 second timeout** on Hobby (free) tier — practice test generation may take longer
-- Consider upgrading to Vercel Pro if you hit timeout limits
-- Use Neon's connection pooler (included in your connection string)
-
----
-
-#### Prerequisites
-1. Install Vercel CLI:
-   ```bash
-   npm install -g vercel
-   ```
-2. Log in to Vercel:
-   ```bash
-   vercel login
-   ```
-
-#### Step 1: Add Neon PostgreSQL as Environment Variable
-
-Your Neon connection string must be added as a Vercel environment variable:
-
-**Via Vercel Dashboard:**
-1. Go to your project on [vercel.com](https://vercel.com)
-2. Navigate to **Settings → Environment Variables**
-3. Add a new variable:
-   - **Key**: `DATABASE_URL`
-   - **Value**: `postgresql://neondb_owner:npg_YwTGSXL8O0Jt@ep-wispy-bar-azpy15r9-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
-   - **Environment**: Production, Preview, Development (check all that apply)
-
-**Via Vercel CLI:**
-```bash
-vercel env add DATABASE_URL
-# Paste your Neon connection string when prompted
-vercel env pull .env.local  # Download to local for testing
-```
-
-> **Note:** Your connection string uses Neon's built-in connection pooler (`ep-...-pooler`). This is essential for serverless deployments where each function invocation creates a new connection.
-
-#### Step 2: Deploy to Vercel
-
-**Option A: Via Vercel Dashboard (Easiest)**
-1. Go to [vercel.com/new](https://vercel.com/new)
-2. Import your GitHub repository: `Tahaijaz233/sat-study-lab`
-3. Vercel will auto-detect the configuration
-4. Add the `DATABASE_URL` environment variable in settings
-5. Click **Deploy**
-
-**Option B: Via Vercel CLI**
-```bash
-# Link the project
-vercel
-
-# Deploy to production
-vercel --prod
-```
-
-#### Step 3: Verify Deployment
+This project is designed to run locally on your own computer using **SQLite**. This is the simplest and most common way to use SAT Study Lab:
 
 ```bash
-# Check deployment status
-vercel status
+# Clone and enter the repository
+git clone https://github.com/Tahaijaz233/sat-study-lab.git
+cd sat-study-lab
 
-# View logs (real-time)
-vercel logs
-
-# Open the app in your browser
-vercel open
-```
-
-Your app will be available at `https://sat-study-lab.vercel.app` (or your custom domain).
-
----
-
-#### Architecture: How It Works on Vercel
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Vercel Serverless                        │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │  api/index.py (Mangum Handler)                          ││
-│  │  ┌─────────────────────────────────────────────────────┐││
-│  │  │  FastAPI App (app/main.py)                         │││
-│  │  │  - All routers included                            │││
-│  │  │  - Jinja2 templates rendered                        │││
-│  │  └─────────────────────────────────────────────────────┘││
-│  │  Creates DB connection per request                      ││
-│  └─────────────────────────────────────────────────────────┘│
-│                           │                                  │
-│                           ▼                                  │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │  Neon PostgreSQL (Connection Pooler)                   ││
-│  │  - Handles connection pooling                           ││
-│  │  - Scales automatically                                 ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Per-Request Flow:**
-1. User makes HTTP request → Vercel routes to `api/index.py`
-2. Mangum handler invokes FastAPI app
-3. App creates a fresh PostgreSQL connection (via Neon pooler)
-4. Request is processed, response returned
-5. Connection closed (Neon pooler manages actual connections)
-
----
-
-### Local Development (SQLite)
-
-For local development, the app uses SQLite by default. No `DATABASE_URL` environment variable is needed.
-
-```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the application
+# Run the application (creates SQLite database automatically)
 python run.py
 
-# Access at http://localhost:8000
+# Open your browser to http://localhost:8000
 ```
 
-To test with PostgreSQL locally (matching production):
+Your data is stored in `sat_lab.db` (SQLite) in the project directory. You have full control over your data.
+
+---
+
+### Deploying to Vercel (For Sharing Online)
+
+If you want to host the app online so others can access it via a web link, you can deploy to **Vercel** with **Neon PostgreSQL**. This requires:
+
+1. **A Neon PostgreSQL database** (free tier at [neon.tech](https://neon.tech))
+2. **A Vercel account** (free tier at [vercel.com](https://vercel.com))
+
+#### Step 1: Get Your Neon Connection String
+
+From your Neon dashboard, copy the connection string. It will look like:
+```
+postgresql://neondb_owner:your_password@ep-xxx-pooler.c-xxx.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+```
+
+#### Step 2: Add to Vercel Environment Variables
+
+In your Vercel project settings → Environment Variables, add:
+- **Key**: `DATABASE_URL`
+- **Value**: Your Neon connection string
+- Check all environments (Production, Preview, Development)
+
+#### Step 3: Deploy
 
 ```bash
-# Set the DATABASE_URL environment variable
-export DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
+# Install Vercel CLI
+npm install -g vercel
 
-# Run the application
-python run.py
+# Link and deploy
+vercel
+vercel --prod
 ```
+
+Or deploy via the Vercel dashboard by importing your GitHub repository.
 
 ---
 
-### Project Structure (Updated for Vercel)
+### Other Deployment Options
 
-```
-SAT-Study-Lab/
-├── app/
-│   ├── agents/            # Multi-agent system (PaperBuilder, Ingestion, Vocab, etc.)
-│   ├── routers/           # FastAPI API endpoints (questions, papers, vocab, analytics)
-│   ├── static/            # Frontend CSS styles, JS modules, assets
-│   ├── templates/         # Jinja2 HTML views (papers, question bank, courses, vocab)
-│   ├── config.py          # App configurations (DATABASE_URL env var)
-│   ├── database.py        # PostgreSQL/SQLite connection manager
-│   └── main.py            # FastAPI main app instance
-├── api/
-│   └── index.py           # Vercel serverless handler (Mangum wrapper)
-├── ingest_opensat.py      # OpenSAT API dataset fetcher & parser
-├── seed_courses.py        # Course content curriculum seeder
-├── seed_data.py           # Core vocabulary & initial question seeder
-├── run.py                 # Startup script & Uvicorn dev server
-├── run_tests.py           # Test runner for unittest suite
-├── requirements.txt       # Python dependencies (includes mangum, psycopg2-binary)
-├── vercel.json            # Vercel deployment configuration
-└── README.md              # Documentation
-```
-
----
-
-### Troubleshooting Vercel Deployment
-
-**Issue: "Connection timeout" errors**
-- Ensure your Neon connection string is correct
-- Verify the pooler endpoint is being used (should contain `pooler` in the hostname)
-- Cold starts may take 1-2 seconds on first invocation
-
-**Issue: Function timeout (10s limit)**
-- Practice test generation queries multiple questions — may exceed 10s
-- Solutions:
-  1. Upgrade to Vercel Pro (60s timeout)
-  2. Optimize queries (add database indexes)
-  3. Split large operations into multiple requests
-
-**Issue: "Module not found" errors**
-- Ensure `requirements.txt` is at the project root
-- Verify all imports use relative paths correctly
-- Check that `api/index.py` has correct `sys.path` configuration
-
-**Issue: Database schema not initialized**
-- The `init_db()` function runs on app startup via lifespan
-- On Vercel, this runs on each cold start
-- If tables don't exist, check Vercel logs for schema creation errors
+- **Railway**: Supports both SQLite (with persistent volume) and PostgreSQL
+- **Fly.io**: Long-running VM with PostgreSQL
+- **Any Python host**: Works with PostgreSQL by setting the `DATABASE_URL` environment variable
 
 ---
 
