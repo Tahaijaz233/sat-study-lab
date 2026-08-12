@@ -94,6 +94,42 @@ Once started, open your browser and navigate to:
 
 ---
 
+## ▲ Deploying to Vercel
+
+The app runs on Vercel as a single Python serverless function (FastAPI's ASGI
+support is built into Vercel's Python runtime — no adapter needed).
+
+```bash
+# 1. Install the Vercel CLI
+npm i -g vercel
+
+# 2. From the repo root, log in and link/deploy
+vercel login
+vercel
+```
+
+Or connect the GitHub repository from the [Vercel dashboard](https://vercel.com)
+— Vercel auto-detects the FastAPI app in `app/main.py`.
+
+What's already configured:
+
+- **`api/index.py`** — explicit Vercel entrypoint shim (re-exports the FastAPI
+  `app` from `app/main.py`).
+- **`vercel.json`** — bumps the function `maxDuration` to 60s for cold starts.
+- **Serverless-safe SQLite** — `app/config.py` detects the read-only serverless
+  filesystem and points the database at `/tmp/sat_lab.db` (only `/tmp` is
+  writable in a Vercel function). The database is seeded automatically on cold
+  start, so the question bank/vocab are always populated.
+- **Favicon** — `app/static/favicon.ico` + `favicon.png` served at `/favicon.ico`
+  and `/favicon.png`, with `<link rel="icon">` tags in `app/templates/base.html`.
+
+> ⚠️ **Note:** Vercel function storage is ephemeral — user practice sessions,
+> attempts, and SM-2 progress reset on each cold start. For persistent user
+> data, point `DB_PATH` (env var) at a hosted SQLite/SQL service (e.g. Turso,
+> Neon, or a Postgres provider).
+
+---
+
 ## 🧪 Running Automated Tests
 
 To execute the full automated test suite (verifying SM-2 calculations, adaptive module quotas, database FTS5 queries, and API endpoints):
@@ -113,17 +149,20 @@ SAT-Study-Lab/
 ├── app/
 │   ├── agents/            # Multi-agent system (PaperBuilder, Ingestion, Vocab, etc.)
 │   ├── routers/           # FastAPI API endpoints (questions, papers, vocab, analytics)
-│   ├── static/            # Frontend CSS styles, JS modules, assets
+│   ├── static/            # Frontend CSS styles, JS modules, assets, favicon
 │   ├── templates/         # Jinja2 HTML views (papers, question bank, courses, vocab)
 │   ├── config.py          # App configurations
 │   ├── database.py        # SQLite connection manager & FTS5 schema init
 │   └── main.py            # FastAPI main app instance
+├── api/
+│   └── index.py           # Vercel serverless entrypoint (FastAPI shim)
 ├── ingest_opensat.py      # OpenSAT API dataset fetcher & parser
 ├── seed_courses.py        # Course content curriculum seeder
 ├── seed_data.py           # Core vocabulary & initial question seeder
 ├── run.py                 # Startup script & Uvicorn dev server
 ├── run_tests.py           # Test runner for unittest suite
 ├── requirements.txt       # Python dependencies
+├── vercel.json            # Vercel function configuration
 └── README.md              # Documentation
 ```
 
