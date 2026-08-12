@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - SAT Study Lab{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8 pb-12">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Performance Analytics</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">Data-driven insights calculated directly from your practice sessions.</p>
+    </div>
+
+    <!-- Top Level Score Estimates -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+            <i data-lucide="award" class="absolute -right-4 -bottom-4 w-32 h-32 opacity-20"></i>
+            <h3 class="text-indigo-100 font-medium">Estimated Total Score</h3>
+            <div class="mt-4 flex items-end gap-2">
+                {% if stats.estimated_total_score and stats.estimated_total_score > 0 %}
+                    <span class="text-6xl font-extrabold tracking-tight">{{ stats.estimated_total_score }}</span>
+                    <span class="text-xl text-indigo-200 font-medium pb-1">/ 1600</span>
+                {% else %}
+                    <span class="text-4xl font-extrabold tracking-tight text-indigo-200">N/A</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col justify-between">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="book-open" class="w-4 h-4 text-blue-500"></i> Reading & Writing
+            </h3>
+            <div class="mt-4">
+                <div class="flex items-end gap-2">
+                    {% if stats.rw_score and stats.rw_score > 0 %}
+                        <span class="text-5xl font-bold text-gray-900 dark:text-white">{{ stats.rw_score }}</span>
+                        <span class="text-gray-500 pb-1">/ 800</span>
+                    {% else %}
+                        <span class="text-3xl font-bold text-gray-400 dark:text-gray-500">N/A</span>
+                    {% endif %}
+                </div>
+                <div class="mt-4 w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+                    <div class="bg-blue-500 h-2 rounded-full" style="width: {{ (stats.rw_score / 800 * 100) if stats.rw_score > 0 else 0 }}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col justify-between">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="calculator" class="w-4 h-4 text-purple-500"></i> Math
+            </h3>
+            <div class="mt-4">
+                <div class="flex items-end gap-2">
+                    {% if stats.math_score and stats.math_score > 0 %}
+                        <span class="text-5xl font-bold text-gray-900 dark:text-white">{{ stats.math_score }}</span>
+                        <span class="text-gray-500 pb-1">/ 800</span>
+                    {% else %}
+                        <span class="text-3xl font-bold text-gray-400 dark:text-gray-500">N/A</span>
+                    {% endif %}
+                </div>
+                <div class="mt-4 w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+                    <div class="bg-purple-500 h-2 rounded-full" style="width: {{ (stats.math_score / 800 * 100) if stats.math_score > 0 else 0 }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diagnostic Alerts -->
+    {% if weak_areas and weak_areas|length > 0 %}
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 flex items-start gap-4">
+            <div class="p-2 bg-red-100 dark:bg-red-900/50 rounded-full shrink-0 text-red-600 dark:text-red-400">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-red-800 dark:text-red-400">Weaknesses Detected (&lt; 70% Accuracy)</h3>
+                <p class="text-red-700 dark:text-red-300 mt-1 text-sm">Prioritize these topics in your next question bank practice session.</p>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    {% for w in weak_areas %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white/50 dark:bg-black/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800/50">
+                            {{ w.topic }} ({{ w.accuracy_percent }}%)
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 flex items-center gap-4">
+            <div class="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-full text-emerald-600 dark:text-emerald-400">
+                <i data-lucide="check-circle" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-emerald-800 dark:text-emerald-400">No Weak Topics Triggered</h3>
+                <p class="text-emerald-700 dark:text-emerald-300 text-sm mt-1">Complete more practice sessions to populate topic diagnostics.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Topic Mastery Matrix -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Topic Mastery Matrix</h2>
+        </div>
+        <div class="overflow-x-auto p-6 text-center text-gray-500 dark:text-gray-400">
+            {% if stats.total_questions_attempted > 0 %}
+                <p class="text-sm">Accuracy tracking enabled across {{ stats.total_questions_attempted }} completed attempts.</p>
+            {% else %}
+                <p class="text-sm py-4">No questions attempted yet. Start practicing in the <a href="/bank" class="text-indigo-600 font-semibold underline">Question Bank</a> or <a href="/papers" class="text-indigo-600 font-semibold underline">Practice Papers</a>!</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/analytics.js"></script>
+{% endblock %}

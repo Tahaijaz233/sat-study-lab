@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | SAT Study Lab{% endblock %}
+
+{% block content %}
+<!-- Animated Mesh Hero -->
+<div class="mesh-bg rounded-3xl p-8 mb-10 text-white shadow-2xl relative overflow-hidden group">
+    <div class="relative z-10">
+        <h1 class="text-4xl font-bold mb-2 tracking-tight">Welcome back!</h1>
+        <p class="text-indigo-100 text-lg font-medium opacity-90 max-w-2xl">
+            You're on track to hit your target score. Let's keep the momentum going.
+        </p>
+    </div>
+    <!-- Decorative element -->
+    <div class="absolute -bottom-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700"></div>
+</div>
+
+<!-- Stats Overview -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Est. Total Score</h3>
+            <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                <i data-lucide="target" class="w-5 h-5"></i>
+            </div>
+        </div>
+        <div class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.estimated_total_score }}</div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-1">
+            <span class="text-green-500 font-medium">RW {{ stats.rw_score }}</span> | 
+            <span class="text-blue-500 font-medium">Math {{ stats.math_score }}</span>
+        </p>
+    </div>
+
+    <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Overall Accuracy</h3>
+            <div class="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform">
+                <i data-lucide="pie-chart" class="w-5 h-5"></i>
+            </div>
+        </div>
+        <div class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.overall_accuracy_percent }}%</div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Based on {{ stats.total_questions_attempted }} questions
+        </p>
+    </div>
+
+    <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Vocab Due</h3>
+            <div class="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
+                <i data-lucide="book-open" class="w-5 h-5"></i>
+            </div>
+        </div>
+        <div class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.vocab_due_count }}</div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Cards ready for review
+        </p>
+    </div>
+
+    <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Completed Sessions</h3>
+            <div class="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                <i data-lucide="check-circle" class="w-5 h-5"></i>
+            </div>
+        </div>
+        <div class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.completed_sessions_count }}</div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Keep up the good work
+        </p>
+    </div>
+</div>
+
+<!-- Quick Launch & Activity -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Quick Launch -->
+    <div class="lg:col-span-2 space-y-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="zap" class="w-5 h-5 text-yellow-500"></i> Quick Launch
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <a href="/papers" class="glass-card rounded-2xl p-6 flex flex-col justify-between group overflow-hidden relative">
+                <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 group-hover:-translate-y-1 transition-transform">
+                        <i data-lucide="file-text" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Practice Papers</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Take a full-length test or section.</p>
+                </div>
+            </a>
+            
+            <a href="/vocab" class="glass-card rounded-2xl p-6 flex flex-col justify-between group overflow-hidden relative">
+                <div class="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative z-10">
+                    <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4 group-hover:-translate-y-1 transition-transform">
+                        <i data-lucide="book-open" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Vocab Review</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Review {{ stats.vocab_due_count }} words due today.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="space-y-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="clock" class="w-5 h-5 text-blue-500"></i> Recent Activity
+        </h2>
+        <div class="glass-card rounded-2xl p-6">
+            {% if stats.recent_activity %}
+            <ul class="space-y-4">
+                {% for activity in stats.recent_activity %}
+                <li class="flex items-start gap-3 pb-4 {% if not loop.last %}border-b border-gray-100 dark:border-gray-800/50{% endif %}">
+                    <div class="mt-0.5 p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                        <i data-lucide="activity" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ activity.title }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ activity.date }} • {{ activity.score }}</p>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-3 opacity-50"></i>
+                <p class="text-sm">No recent activity.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

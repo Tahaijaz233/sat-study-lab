@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Practice Papers - SAT Study Lab{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto flex flex-col h-full space-y-4">
+    <!-- Header & Timer -->
+    <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm z-10 relative">
+        <div class="flex items-center gap-4">
+            <button id="btnOpenSetup" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> New Session
+            </button>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white" id="sessionTitle">Practice Test Engine</h1>
+            <span class="px-2.5 py-1 text-xs font-semibold rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400" id="sectionBadge">Ready</span>
+        </div>
+        <div class="flex items-center gap-6">
+            <!-- Calculator Toggle Button (Hidden by default, shown for Math) -->
+            <button id="calculator-btn" class="hidden flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors border border-blue-600/30">
+                <i data-lucide="calculator" class="w-4 h-4"></i> Calculator
+            </button>
+            <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-900 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 font-mono text-xl font-bold tracking-wider text-gray-900 dark:text-white">
+                <i data-lucide="clock" class="w-5 h-5 text-gray-500"></i>
+                <span id="timerDisplay">00:00</span>
+            </div>
+            <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm" id="btnFinish">
+                Finish Section
+            </button>
+        </div>
+    </div>
+
+    <!-- Workspace -->
+    <div class="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row relative min-h-[60vh]">
+        
+        <!-- Left Pane (Passage / Stimulus) -->
+        <div class="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 custom-scrollbar text-lg leading-relaxed text-gray-800 dark:text-gray-200">
+            <div id="stimulusContent" class="prose dark:prose-invert max-w-none">
+                <div class="text-center py-12 text-gray-500">
+                    <i data-lucide="book-open" class="w-12 h-12 mx-auto mb-3 text-indigo-400"></i>
+                    <p class="text-base">Passage content will appear here when you start a session.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Pane (Question & Answers) -->
+        <div class="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto custom-scrollbar flex flex-col justify-between">
+            <div>
+                <div class="flex justify-between items-start mb-6">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-sm font-bold text-indigo-800 dark:text-indigo-300" id="currentQNum">1</span>
+                    <button class="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-amber-500 dark:text-gray-400 dark:hover:text-amber-400 transition-colors" id="btnFlag">
+                        <i data-lucide="flag" class="w-4 h-4"></i> <span id="flagText">Mark for Review</span>
+                    </button>
+                </div>
+                
+                <div id="questionContent" class="text-lg font-medium text-gray-900 dark:text-white mb-8 prose dark:prose-invert">
+                    <p class="text-gray-500 text-center py-8">Click "Start Session" to load questions.</p>
+                </div>
+
+                <div id="optionsContainer" class="space-y-3">
+                    <!-- Dynamic choices / input -->
+                </div>
+            </div>
+
+            <!-- Navigation Footer -->
+            <div class="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <button class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50" id="btnPrev" disabled>
+                    Previous
+                </button>
+                <button class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm" id="btnNext">
+                    Next
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Grid Map -->
+    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Question Map</h3>
+        <div class="flex flex-wrap gap-2" id="questionGrid">
+            <!-- Grid bubbles generated dynamically -->
+        </div>
+    </div>
+</div>
+
+<!-- Session Setup Modal -->
+<div id="setupModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Start Digital SAT Practice</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Select a section to launch a timed or untimed practice session.</p>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Section</label>
+                <select id="sectionSelect" class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5">
+                    <option value="Reading & Writing">Reading & Writing (27 Qs / 32 min)</option>
+                    <option value="Math">Math (22 Qs / 35 min)</option>
+                    <option value="Full Test">Full Practice Test (RW + Math)</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <input type="checkbox" id="timedMode" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" checked>
+                <label for="timedMode" class="text-sm font-medium text-gray-700 dark:text-gray-300">Enable Countdown Timer</label>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+            <button id="btnCancelModal" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+            <button id="btnStartModal" class="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2">
+                <i data-lucide="play" class="w-4 h-4"></i> Start Session
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Score Report Modal -->
+<div id="scoreModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg p-6 text-center space-y-6">
+        <div class="w-16 h-16 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+            <i data-lucide="award" class="w-8 h-8"></i>
+        </div>
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Section Completed!</h2>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Here is your score report based on your attempts.</p>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div>
+                <span class="text-xs font-semibold text-gray-500 uppercase">Correct Count</span>
+                <p id="scoreModalCorrect" class="text-2xl font-bold text-gray-900 dark:text-white">0 / 0</p>
+            </div>
+            <div>
+                <span class="text-xs font-semibold text-gray-500 uppercase">Scaled Score</span>
+                <p id="scoreModalScaled" class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">200</p>
+            </div>
+        </div>
+
+        <div class="flex justify-center gap-3">
+            <button id="btnCloseScoreModal" class="px-5 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors">Return to Dashboard</button>
+        </div>
+    </div>
+</div>
+
+<!-- Draggable/Toggleable Calculator Modal -->
+<div id="desmos-modal" class="hidden fixed top-20 right-10 w-[500px] h-[400px] bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
+    <div class="bg-gray-100 dark:bg-slate-800 p-2 cursor-move flex justify-between items-center" id="desmos-header">
+        <span class="text-sm font-semibold text-gray-700 dark:text-slate-300 flex items-center gap-2"><i data-lucide="calculator" class="w-4 h-4"></i> Desmos Graphing Calculator</span>
+        <button id="close-desmos-btn" class="text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div id="calculator-container" class="w-full h-[calc(100%-40px)]"></div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/papers.js"></script>
+{% endblock %}

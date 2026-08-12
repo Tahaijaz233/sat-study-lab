@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Question Bank - SAT Study Lab{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto h-full flex flex-col space-y-4">
+    <!-- Header & Search Bar -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm z-20">
+        <div class="flex flex-col md:flex-row gap-4 justify-between">
+            <div class="relative flex-1">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i data-lucide="search" class="w-5 h-5 text-gray-400"></i>
+                </div>
+                <input type="text" id="searchInput" class="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors" placeholder="Search questions & passages (FTS5)...">
+            </div>
+            
+            <div class="flex gap-2 flex-wrap">
+                <select id="sectionFilter" class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-2 py-2">
+                    <option value="">All Sections</option>
+                    <option value="Reading & Writing">Reading & Writing</option>
+                    <option value="Math">Math</option>
+                </select>
+                <select id="subtopicFilter" class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-2 py-2 max-w-[200px]">
+                    <option value="">All Topics</option>
+                </select>
+                <select id="difficultyFilter" class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-2 py-2">
+                    <option value="">All Difficulties</option>
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Single Focused Card View Area -->
+    <div class="flex-1 flex items-center justify-center pb-8">
+        <div class="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col min-h-[65vh]">
+            
+            <!-- Card Header -->
+            <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                <div class="flex gap-2 flex-wrap">
+                    <span id="cardBadgeSection" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">Reading & Writing</span>
+                    <span id="cardBadgeDifficulty" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">Medium</span>
+                    <span id="cardBadgeTopic" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">Information & Ideas</span>
+                    <span id="cardBadgeSubtopic" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">Central Ideas</span>
+                </div>
+                <div class="flex items-center gap-4 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <span id="cardCounter" class="font-bold text-gray-900 dark:text-white">Card 1 of 2276</span>
+                </div>
+            </div>
+
+            <!-- Card Content (Scrollable) -->
+            <div class="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar space-y-6">
+                <!-- Passage (if exists) -->
+                <div id="cardPassage" class="hidden p-5 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700 prose dark:prose-invert max-w-none text-base">
+                </div>
+
+                <!-- Prompt -->
+                <div id="cardPrompt" class="prose dark:prose-invert max-w-none text-lg font-medium text-gray-900 dark:text-white leading-relaxed">
+                </div>
+                
+                <!-- Choices / Options -->
+                <div id="cardChoicesContainer" class="space-y-3 pt-4">
+                </div>
+
+                <!-- Explanation Box -->
+                <div id="cardExplanationContainer" class="hidden p-5 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl border border-indigo-200 dark:border-indigo-800/50">
+                    <h4 class="font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-2 mb-3">
+                        <i data-lucide="lightbulb" class="w-5 h-5 text-amber-500"></i> Explanation
+                    </h4>
+                    <div id="cardExplanationText" class="prose dark:prose-invert max-w-none text-sm text-indigo-950 dark:text-indigo-200 leading-relaxed">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Navigation Footer -->
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex justify-between items-center">
+                <button id="btnCardPrev" class="px-5 py-2.5 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-colors disabled:opacity-50" disabled>
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i> Prev
+                </button>
+                <select id="jumpDropdown" class="bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg p-2 cursor-pointer text-center max-w-[280px]">
+                    <option>Jump to card...</option>
+                </select>
+                <button id="btnCardNext" class="px-5 py-2.5 flex items-center gap-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 shadow-sm transition-colors">
+                    Next <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/bank.js"></script>
+{% endblock %}

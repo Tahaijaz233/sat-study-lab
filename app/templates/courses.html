@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}AI Courses - SAT Study Lab{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-8">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">AI Prebuilt Courses</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">Structured lessons covering every domain tested on the Digital SAT. Each module includes theory, worked examples, common traps, and practice drills.</p>
+    </div>
+    
+    {% if not courses %}
+    <div class="text-center py-16 text-gray-500 dark:text-gray-400">
+        <i data-lucide="book-x" class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600"></i>
+        <p class="text-lg font-medium">No courses available yet.</p>
+        <p class="text-sm">Run the course seeding scripts to populate this section.</p>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% for course in courses %}
+        <a href="/courses/{{ course.id }}" class="group block relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+            <!-- Top accent bar -->
+            <div class="h-1 {% if course.section == 'Math' %}bg-blue-500{% else %}bg-indigo-500{% endif %}"></div>
+            
+            <div class="p-6">
+                <div class="flex items-start gap-4 mb-4">
+                    <div class="p-3 rounded-xl {% if course.section == 'Math' %}bg-blue-100 dark:bg-blue-900/30{% else %}bg-indigo-100 dark:bg-indigo-900/30{% endif %}">
+                        {% if course.section == 'Math' %}
+                            <i data-lucide="calculator" class="w-7 h-7 text-blue-600 dark:text-blue-400"></i>
+                        {% else %}
+                            <i data-lucide="book-open" class="w-7 h-7 text-indigo-600 dark:text-indigo-400"></i>
+                        {% endif %}
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{{ course.title }}</h2>
+                        <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-md {% if course.section == 'Math' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400{% else %}bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400{% endif %}">{{ course.section }}</span>
+                    </div>
+                </div>
+                
+                <p class="text-gray-600 dark:text-gray-300 leading-relaxed text-sm mb-5">{{ course.description }}</p>
+                
+                <div class="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <i data-lucide="layers" class="w-4 h-4"></i>
+                        <span>{{ course.module_count }} modules</span>
+                    </div>
+                    <span class="flex items-center gap-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
+                        Start Learning <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </span>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
