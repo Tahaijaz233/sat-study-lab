@@ -1,0 +1,41 @@
+# Fly.io configuration for SAT Study Lab
+# Auto-generated configuration for deploying a FastAPI + PostgreSQL app
+
+app = "sat-study-lab"
+primary_region = "sin"  # Singapore - closest to your location (Pakistan)
+
+[build]
+  # Use the default Docker build (no custom Dockerfile needed)
+  # We'll use the Docker image built from the working directory
+
+[env]
+  PORT = "8080"
+  PYTHONUNBUFFERED = "1"
+  # DATABASE_URL is set via fly secrets, not here
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
+
+  [[vm.allowed_robots]]
+    # Allow health check probes
+    regex = ["/health"]
+
+[http_service]
+  protocol = "tcp"
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/health"
+
+# PostgreSQL connection is configured via secrets, not in this file
+# Run: fly secrets set DATABASE_URL="your_neon_connection_string"

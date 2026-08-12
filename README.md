@@ -131,10 +131,74 @@ SAT-Study-Lab/
 
 ## 🌐 Deployment Guidelines
 
-- **Render / Railway / Fly.io (Recommended)**:
-  Deploy directly as a Python Web Service. Attach a **Persistent Disk/Volume** mapped to the directory containing `sat_lab.db` so database changes persist across server restarts.
-- **Vercel / AWS Lambda**:
-  Serverless platforms use ephemeral file systems. If deploying to Vercel, replace SQLite with a hosted cloud database provider (e.g., Supabase, Neon PostgreSQL, or Vercel Postgres).
+### Fly.io + Neon PostgreSQL (Recommended for Production)
+
+This is the recommended deployment stack for production use:
+
+- **Fly.io**: Hosts the FastAPI application as a long-running VM
+- **Neon PostgreSQL**: Hosted serverless PostgreSQL database (free tier, no expiration)
+
+#### Prerequisites
+1. Install Fly.io CLI:
+   ```bash
+   curl -L https://fly.io/install | sh
+   ```
+2. Log in to Fly.io:
+   ```bash
+   fly auth login
+   ```
+
+#### Step 1: Set Database Secret
+Your Neon PostgreSQL connection string needs to be set as a Fly.io secret:
+```bash
+fly secrets set DATABASE_URL="postgresql://neondb_owner:[npg_YwTGSXL8O0Jt@ep-wispy-bar-azpy15r9-pooler.c-3.ap-southeast-1.aws.neon.tech]/neondb?sslmode=require&channel_binding=require"
+```
+
+#### Step 2: Deploy to Fly.io
+```bash
+# Initialize the app (if not already done)
+fly launch --name sat-study-lab --region sin --no-deploy
+
+# Deploy the application
+fly deploy
+```
+
+#### Step 3: Verify Deployment
+```bash
+# Check app status
+fly status
+
+# View live logs
+fly logs
+
+# Open the app in your browser
+fly open
+```
+
+Your app will be available at `https://sat-study-lab.sin.fly.dev` (or whatever URL Fly.io assigns).
+
+---
+
+### Local Development (SQLite)
+
+For local development, the app uses SQLite by default. No `DATABASE_URL` environment variable is needed.
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+python run.py
+
+# Access at http://localhost:8000
+```
+
+---
+
+### Other Platforms
+
+- **Railway**: Works with either SQLite (with persistent volume) or Neon PostgreSQL
+- **Vercel / AWS Lambda**: Serverless platforms use ephemeral file systems. If deploying to Vercel, you MUST use Neon PostgreSQL (set `DATABASE_URL` env var) — SQLite will not persist.
 
 ---
 

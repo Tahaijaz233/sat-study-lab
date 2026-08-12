@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from app.database import init_db
 from app.routers import pages, questions, papers, vocab, analytics, sources, agents
@@ -13,6 +14,11 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+# Health check endpoint for Fly.io
+@app.get("/health")
+async def health_check():
+    return JSONResponse(content={"status": "healthy", "service": "sat-study-lab"})
 
 os.makedirs("app/static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
