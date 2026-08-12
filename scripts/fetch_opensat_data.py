@@ -16,11 +16,11 @@ from app.agents.normalization import NormalizationAgent
 from app.database import get_db
 
 
-# Ordered fallbacks. The JSONSilo mirror is kept for resilience when the
-# community API is temporarily unavailable.
+# Ordered fallbacks. Prefer OpenSAT's canonical community endpoint; keep the
+# JSONSilo mirror for resilience when that service is temporarily unavailable.
 OPENSAT_URLS = [
-    "https://api.jsonsilo.com/public/942c3c3b-3a0c-4be3-81c2-12029def19f5",
     "https://pinesat.duckdns.org/api/questions",
+    "https://api.jsonsilo.com/public/942c3c3b-3a0c-4be3-81c2-12029def19f5",
 ]
 # Backwards-friendly alias used by deployment checks.
 API_ENDPOINTS = OPENSAT_URLS

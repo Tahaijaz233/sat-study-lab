@@ -8,8 +8,8 @@ from scripts import fetch_opensat_data as opensat
 
 
 class TestOpenSATHelpers(unittest.TestCase):
-    def test_duckdns_endpoint_is_configured(self):
-        self.assertTrue(any("pinesat.duckdns.org" in url for url in opensat.OPENSAT_URLS))
+    def test_duckdns_endpoint_is_preferred(self):
+        self.assertIn("pinesat.duckdns.org", opensat.OPENSAT_URLS[0])
 
     def test_flatten_list_adds_section_hint(self):
         rows = opensat._flatten_payload([{"id": "1"}], "Math")
