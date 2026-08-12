@@ -14,12 +14,11 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 
 def seed_if_empty():
-    """Populate the database on cold start if it has no questions.
+    """Populate the database on cold start if it has no starter content.
 
     Vercel serverless filesystems are ephemeral (SQLite lives in /tmp), so
-    every cold start gets a fresh database. seed_data is idempotent and fast
-    (~0.05s), so seeding only when the questions table is empty keeps the
-    study lab fully populated without re-inserting data on warm starts.
+    every cold start gets a fresh database. seed_data is idempotent and fast,
+    and supplies useful fallback content even if OpenSAT is unavailable.
     """
     try:
         with get_db() as conn:
@@ -32,12 +31,38 @@ def seed_if_empty():
         print(f"[SAT Study Lab] Seed skipped: {e}")
 
 
+def ingest_opensat_if_empty():
+    """Load the full OpenSAT bank once, without making startup fragile.
+
+    The source count makes warm starts and persistent PostgreSQL deployments
+    cheap. Set SKIP_OPENSAT_INGEST=1 for offline development or test runs.
+    """
+    if os.getenv("SKIP_OPENSAT_INGEST", "").lower() in {"1", "true", "yes"}:
+        return
+
+    try:
+        with get_db() as conn:
+            count = conn.execute(
+                """
+                SELECT COUNT(*) FROM questions
+                WHERE source_name = 'OpenSAT Community Database'
+                """
+            ).fetchone()[0]
+        if count == 0:
+            from scripts.fetch_opensat_data import fetch_and_ingest
+
+            fetch_and_ingest()
+    except Exception as e:  # pragma: no cover - remote data must not block app
+        print(f"[SAT Study Lab] OpenSAT auto-ingest skipped: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     os.makedirs(STATIC_DIR, exist_ok=True)
     os.makedirs(TEMPLATES_DIR, exist_ok=True)
     seed_if_empty()
+    ingest_opensat_if_empty()
     yield
 
 

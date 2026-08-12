@@ -1,7 +1,7 @@
 import json
 from pypdf import PdfReader
 import httpx
-from ingest_opensat import fetch_and_ingest
+from scripts.fetch_opensat_data import fetch_and_ingest
 
 class IngestionAgent:
     def from_json(self, json_data):

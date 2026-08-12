@@ -448,3 +448,14 @@ def init_db():
                 "CREATE UNIQUE INDEX IF NOT EXISTS passages_content_hash_idx "
                 "ON passages(content_hash)"
             )
+
+        # Repair section labels produced by older seed/import code. Practice
+        # papers query the canonical ampersand spelling exactly.
+        conn.execute(
+            """
+            UPDATE questions SET section = 'Reading & Writing'
+            WHERE LOWER(TRIM(section)) IN (
+                'reading and writing', 'reading &amp; writing', 'r&w', 'rw'
+            ) AND section != 'Reading & Writing'
+            """
+        )

@@ -103,7 +103,7 @@ async def list_questions(
 
 @router.post("/ingest/opensat")
 async def ingest_opensat():
-    """Trigger ingestion of OpenSAT public dataset into SQLite."""
+    """Trigger idempotent ingestion of the complete OpenSAT public dataset."""
     stats = ingestion_agent.from_opensat_api()
     return {"status": "success", **stats}
 

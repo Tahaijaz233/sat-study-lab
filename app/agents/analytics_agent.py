@@ -41,7 +41,7 @@ class AnalyticsAgent:
                 COALESCE(SUM(CASE WHEN ua.is_correct = 1 THEN 1 ELSE 0 END), 0) as correct
             FROM user_attempts ua
             JOIN questions q ON ua.question_id = q.id
-            WHERE q.section = 'Reading and Writing'
+            WHERE q.section = 'Reading & Writing'
         """).fetchone()
         
         rw_total = rw_attempts_row['total'] if rw_attempts_row else 0

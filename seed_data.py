@@ -625,7 +625,7 @@ SEED_SOURCES = [
 
 SEED_QUESTIONS = [
     {
-        "section": "Reading and Writing",
+        "section": "Reading & Writing",
         "topic": "Information and Ideas",
         "subtopic": "Central Ideas and Details",
         "difficulty": "Medium",
@@ -642,7 +642,7 @@ SEED_QUESTIONS = [
         "source_name": "SAT Study Lab Original"
     },
     {
-        "section": "Reading and Writing",
+        "section": "Reading & Writing",
         "topic": "Craft and Structure",
         "subtopic": "Words in Context",
         "difficulty": "Easy",
@@ -659,7 +659,7 @@ SEED_QUESTIONS = [
         "source_name": "SAT Study Lab Original"
     },
     {
-        "section": "Reading and Writing",
+        "section": "Reading & Writing",
         "topic": "Expression of Ideas",
         "subtopic": "Transitions",
         "difficulty": "Medium",
@@ -676,7 +676,7 @@ SEED_QUESTIONS = [
         "source_name": "SAT Study Lab Original"
     },
     {
-        "section": "Reading and Writing",
+        "section": "Reading & Writing",
         "topic": "Standard English Conventions",
         "subtopic": "Boundaries",
         "difficulty": "Hard",
@@ -693,7 +693,7 @@ SEED_QUESTIONS = [
         "source_name": "SAT Study Lab Original"
     },
     {
-        "section": "Reading and Writing",
+        "section": "Reading & Writing",
         "topic": "Information and Ideas",
         "subtopic": "Command of Evidence",
         "difficulty": "Hard",
