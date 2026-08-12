@@ -161,42 +161,6 @@ Your data is stored in `sat_lab.db` (SQLite) in the project directory. You have 
 
 ---
 
-### Deploying to Vercel (For Sharing Online)
-
-If you want to host the app online so others can access it via a web link, you can deploy to **Vercel** with **Neon PostgreSQL**. This requires:
-
-1. **A Neon PostgreSQL database** (free tier at [neon.tech](https://neon.tech))
-2. **A Vercel account** (free tier at [vercel.com](https://vercel.com))
-
-#### Step 1: Get Your Neon Connection String
-
-From your Neon dashboard, copy the connection string. It will look like:
-```
-postgresql://neondb_owner:your_password@ep-xxx-pooler.c-xxx.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-```
-
-#### Step 2: Add to Vercel Environment Variables
-
-In your Vercel project settings → Environment Variables, add:
-- **Key**: `DATABASE_URL`
-- **Value**: Your Neon connection string
-- Check all environments (Production, Preview, Development)
-
-#### Step 3: Deploy
-
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Link and deploy
-vercel
-vercel --prod
-```
-
-Or deploy via the Vercel dashboard by importing your GitHub repository.
-
----
-
 ### Other Deployment Options
 
 - **Railway**: Supports both SQLite (with persistent volume) and PostgreSQL
