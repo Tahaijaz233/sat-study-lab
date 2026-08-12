@@ -28,7 +28,7 @@ class QAComplianceAgent:
             LEFT JOIN choices c ON q.id = c.question_id
             WHERE q.question_type = 'Multiple Choice'
             GROUP BY q.id
-            HAVING choice_cnt != 4
+            HAVING COUNT(c.id) != 4
         """).fetchall()
         if invalid_mcq:
             issues.append(f"{len(invalid_mcq)} MCQ items do not have exactly 4 choices.")
@@ -38,7 +38,7 @@ class QAComplianceAgent:
             SELECT content_hash, COUNT(*) as cnt
             FROM questions
             GROUP BY content_hash
-            HAVING cnt > 1
+            HAVING COUNT(*) > 1
         """).fetchall()
         if dup_hashes:
             issues.append(f"{len(dup_hashes)} duplicate question hashes detected.")
