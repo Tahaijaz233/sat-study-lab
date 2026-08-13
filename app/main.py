@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.config import IS_SERVERLESS
 from app.database import get_db, init_db
 from app.routers import pages, questions, papers, vocab, analytics, sources, agents
 
@@ -38,6 +39,10 @@ def ingest_opensat_if_empty():
     cheap. Set SKIP_OPENSAT_INGEST=1 for offline development or test runs.
     """
     if os.getenv("SKIP_OPENSAT_INGEST", "").lower() in {"1", "true", "yes"}:
+        return
+
+    if IS_SERVERLESS and os.getenv("FORCE_OPENSAT_INGEST", "").lower() not in {"1", "true", "yes"}:
+        print("[SAT Study Lab] Skipping OpenSAT auto-ingest in serverless environment.")
         return
 
     try:

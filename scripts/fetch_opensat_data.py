@@ -204,6 +204,13 @@ def ingest_questions(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
         cursor = conn.cursor()
         _upsert_source(cursor)
 
+        existing_q_hashes = {
+            row[0] for row in cursor.execute("SELECT content_hash FROM questions WHERE content_hash IS NOT NULL").fetchall()
+        }
+        existing_passages = {
+            row[0]: row[1] for row in cursor.execute("SELECT content_hash, id FROM passages WHERE content_hash IS NOT NULL").fetchall()
+        }
+
         for item in items:
             question_data = _coerce_question_data(item)
             prompt = str(
@@ -226,11 +233,11 @@ def ingest_questions(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
                 passage_text = ""
 
             content_hash = normalizer.compute_hash(prompt, passage_text)
-            if cursor.execute(
-                "SELECT id FROM questions WHERE content_hash = ?", (content_hash,)
-            ).fetchone():
+            if content_hash in existing_q_hashes:
                 stats["duplicates"] += 1
                 continue
+
+            existing_q_hashes.add(content_hash)
 
             topic = _canonical_topic(item.get("domain") or item.get("topic"))
             section = _infer_section(item, topic)
@@ -264,13 +271,11 @@ def ingest_questions(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
             passage_id = None
             if passage_text:
                 passage_hash = hashlib.sha256(passage_text.encode("utf-8")).hexdigest()
-                passage_row = cursor.execute(
-                    "SELECT id FROM passages WHERE content_hash = ?", (passage_hash,)
-                ).fetchone()
-                if passage_row:
-                    passage_id = passage_row["id"]
+                if passage_hash in existing_passages:
+                    passage_id = existing_passages[passage_hash]
                 else:
                     passage_id = f"opensat_p_{passage_hash[:24]}"
+                    existing_passages[passage_hash] = passage_id
                     cursor.execute(
                         """
                         INSERT INTO passages (
@@ -346,7 +351,11 @@ def ingest_questions(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
                 )
 
             stats["inserted"] += 1
+            if stats["inserted"] % 100 == 0:
+                conn.commit()
+                print(f"[Ingestion Progress] Inserted {stats['inserted']} questions...")
 
+        conn.commit()
         cursor.execute(
             """
             UPDATE sources
