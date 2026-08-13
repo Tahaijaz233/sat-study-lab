@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sectionBadge = document.getElementById('sectionBadge');
     const timerDisplay = document.getElementById('timerDisplay');
     const currentQNum = document.getElementById('currentQNum');
+    const stimulusPane = document.getElementById('stimulusPane');
+    const questionPane = document.getElementById('questionPane');
     const stimulusContent = document.getElementById('stimulusContent');
     const questionContent = document.getElementById('questionContent');
     const optionsContainer = document.getElementById('optionsContainer');
@@ -42,9 +44,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         str = str.replace(/\\u2013/g, "–")
                  .replace(/\\u2014/g, "—")
+                 .replace(/\\u2018/g, "'")
                  .replace(/\\u2019/g, "'")
                  .replace(/\\u201c/g, '"')
-                 .replace(/\\u201d/g, '"');
+                 .replace(/\\u201d/g, '"')
+                 .replace(/\ufffd/g, "'")
+                 .replace(/\\"/g, '"')
+                 .replace(/\\'/g, "'");
 
         str = str.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         str = str.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
@@ -188,17 +194,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const q = questions[idx];
         if (currentQNum) currentQNum.textContent = idx + 1;
 
-        if (q.passage_content) {
-            stimulusContent.innerHTML = `
-                <h3 class="font-bold text-lg mb-2 text-indigo-600 dark:text-indigo-400">${q.passage_title || 'Passage'}</h3>
-                <div>${formatText(q.passage_content)}</div>
-            `;
+        const hasPassage = q.passage_content && q.passage_content.trim() && q.passage_content.trim() !== 'null';
+
+        if (hasPassage) {
+            if (stimulusPane) stimulusPane.classList.remove('hidden');
+            if (questionPane) {
+                questionPane.classList.remove('md:w-full', 'max-w-4xl', 'mx-auto');
+                questionPane.classList.add('md:w-1/2');
+            }
+            if (stimulusContent) {
+                stimulusContent.innerHTML = `
+                    <h3 class="font-bold text-lg mb-2 text-indigo-600 dark:text-indigo-400">${q.passage_title || 'Passage'}</h3>
+                    <div>${formatText(q.passage_content)}</div>
+                `;
+            }
         } else {
-            stimulusContent.innerHTML = `
-                <div class="text-center py-12 text-gray-400">
-                    <p class="text-sm">This question has no associated reading passage.</p>
-                </div>
-            `;
+            if (stimulusPane) stimulusPane.classList.add('hidden');
+            if (questionPane) {
+                questionPane.classList.remove('md:w-1/2');
+                questionPane.classList.add('md:w-full', 'max-w-4xl', 'mx-auto');
+            }
         }
 
         questionContent.innerHTML = `<p>${formatText(q.prompt)}</p>`;

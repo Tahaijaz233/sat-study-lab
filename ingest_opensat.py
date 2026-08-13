@@ -2,19 +2,20 @@ import httpx
 import json
 import uuid
 import hashlib
+import ast
 from datetime import datetime
 from app.database import get_db
+from app.agents.normalization import NormalizationAgent
 
 OPENSAT_URL = "https://api.jsonsilo.com/public/942c3c3b-3a0c-4be3-81c2-12029def19f5"
-
-def compute_hash(prompt: str, passage: str = "") -> str:
-    return hashlib.sha256((prompt + (passage or "")).encode('utf-8')).hexdigest()
+normalizer = NormalizationAgent()
 
 def infer_subtopic(domain: str) -> str:
     subtopics_map = {
         "Algebra": "Linear Equations",
         "Advanced Math": "Equivalent Expressions",
         "Problem-Solving and Data Analysis": "Ratios and Rates",
+        "Problem Solving and Data Analysis": "Ratios and Rates",
         "Geometry and Trigonometry": "Lines, Angles, and Triangles",
         "Standard English Conventions": "Boundaries and Sentence Structure",
         "Craft and Structure": "Words in Context",
@@ -22,8 +23,6 @@ def infer_subtopic(domain: str) -> str:
         "Expression of Ideas": "Transitions"
     }
     return subtopics_map.get(domain, "General SAT Concept")
-
-import ast
 
 def fetch_and_ingest():
     print(f"Fetching OpenSAT question database from {OPENSAT_URL}...")
@@ -66,19 +65,23 @@ def fetch_and_ingest():
                             pass
                     
                     if isinstance(q_data, dict):
-                        prompt = str(q_data.get("question", "")).strip()
+                        raw_prompt = str(q_data.get("question", "")).strip()
+                        raw_paragraph = str(q_data.get("paragraph", "")).strip()
                     else:
-                        prompt = str(q_data).strip()
+                        raw_prompt = str(q_data).strip()
+                        raw_paragraph = ""
+
+                    prompt = normalizer.clean_text(raw_prompt)
+                    passage_content = normalizer.clean_passage(raw_paragraph)
+
+                    if not prompt and raw_paragraph:
+                        prompt = normalizer.clean_text(raw_paragraph)
                         
                     if not prompt:
                         continue
 
-                    paragraph = q_data.get("paragraph")
                     passage_id = None
-                    passage_content = ""
-
-                    if paragraph and paragraph != "null" and str(paragraph).strip():
-                        passage_content = str(paragraph).strip()
+                    if passage_content:
                         p_hash = hashlib.sha256(passage_content.encode('utf-8')).hexdigest()[:16]
                         
                         # Check existing passage
@@ -88,19 +91,20 @@ def fetch_and_ingest():
                         else:
                             passage_id = p_hash
                             cursor.execute("""
-                                INSERT INTO passages (id, title, content, passage_type, word_count, source_name, source_uri)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                INSERT INTO passages (id, title, content, passage_type, word_count, source_name, source_uri, content_hash)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                             """, (
                                 passage_id,
-                                f"Reading Passage ({item.get('domain', 'General')})",
+                                f"OpenSAT Passage - {item.get('domain', 'General')}",
                                 passage_content,
-                                "Reading & Writing Passage",
+                                f"{section_name} Passage",
                                 len(passage_content.split()),
                                 "OpenSAT Community Database",
-                                "https://github.com/Anas099X/OpenSAT"
+                                "https://github.com/Anas099X/OpenSAT",
+                                p_hash
                             ))
 
-                    content_hash = compute_hash(prompt, passage_content)
+                    content_hash = normalizer.compute_hash(prompt, passage_content)
 
                     # Check duplicate question
                     existing_q = cursor.execute("SELECT id FROM questions WHERE content_hash = ?", (content_hash,)).fetchone()
@@ -111,14 +115,14 @@ def fetch_and_ingest():
                     question_id = str(uuid.uuid4())
                     domain = item.get("domain", "General SAT Concept")
                     subtopic = infer_subtopic(domain)
-                    difficulty = item.get("difficulty", "Medium").capitalize()
+                    difficulty = str(item.get("difficulty") or "Medium").strip().capitalize()
                     if difficulty not in ["Easy", "Medium", "Hard"]:
                         difficulty = "Medium"
 
-                    choices_dict = q_data.get("choices", {})
+                    choices_dict = q_data.get("choices", {}) if isinstance(q_data, dict) else {}
                     question_type = "Multiple Choice" if choices_dict else "Student-Produced Response"
-                    correct_answer = str(q_data.get("correct_answer", "")).strip()
-                    explanation = q_data.get("explanation", "Detailed explanation provided by OpenSAT community.").strip()
+                    correct_answer = normalizer.clean_text(q_data.get("correct_answer", "") if isinstance(q_data, dict) else "")
+                    explanation = normalizer.clean_text(q_data.get("explanation", "Detailed explanation provided by OpenSAT community.") if isinstance(q_data, dict) else "")
 
                     cursor.execute("""
                         INSERT INTO questions (
@@ -136,12 +140,13 @@ def fetch_and_ingest():
                     # Insert choices
                     if choices_dict and isinstance(choices_dict, dict):
                         for letter, content in choices_dict.items():
-                            is_correct = 1 if letter == correct_answer else 0
+                            clean_content = normalizer.clean_text(content)
+                            is_correct = 1 if letter.strip().upper() == correct_answer.strip().upper() or clean_content.strip().upper() == correct_answer.strip().upper() else 0
                             choice_id = str(uuid.uuid4())
                             cursor.execute("""
                                 INSERT INTO choices (id, question_id, choice_letter, content, is_correct)
                                 VALUES (?, ?, ?, ?, ?)
-                            """, (choice_id, question_id, letter, str(content), is_correct))
+                            """, (choice_id, question_id, letter.strip().upper(), clean_content, is_correct))
 
                     stats["inserted"] += 1
 

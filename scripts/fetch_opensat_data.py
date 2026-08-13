@@ -213,24 +213,29 @@ def ingest_questions(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
 
         for item in items:
             question_data = _coerce_question_data(item)
-            prompt = str(
+            raw_prompt = str(
                 question_data.get("question")
                 or question_data.get("prompt")
                 or item.get("prompt")
                 or ""
             ).strip()
-            if not prompt:
-                stats["skipped"] += 1
-                continue
 
-            passage_text = str(
+            raw_passage = str(
                 question_data.get("paragraph")
                 or question_data.get("passage")
                 or item.get("passage")
                 or ""
             ).strip()
-            if passage_text.lower() == "null":
-                passage_text = ""
+
+            prompt = normalizer.clean_text(raw_prompt)
+            passage_text = normalizer.clean_passage(raw_passage)
+
+            if not prompt and raw_passage:
+                prompt = normalizer.clean_text(raw_passage)
+
+            if not prompt:
+                stats["skipped"] += 1
+                continue
 
             content_hash = normalizer.compute_hash(prompt, passage_text)
             if content_hash in existing_q_hashes:
@@ -254,19 +259,19 @@ def ingest_questions(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
                 or []
             )
             choices = _choice_pairs(raw_choices)
-            correct_answer = str(
+            correct_answer = normalizer.clean_text(
                 question_data.get("correct_answer")
                 or question_data.get("correct")
                 or item.get("correct_answer")
                 or item.get("correct")
                 or ""
-            ).strip()
-            explanation = str(
+            )
+            explanation = normalizer.clean_text(
                 question_data.get("explanation")
                 or question_data.get("rationale")
                 or item.get("explanation")
                 or "Explanation provided by the OpenSAT community."
-            ).strip()
+            )
 
             passage_id = None
             if passage_text:
@@ -328,9 +333,10 @@ def ingest_questions(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
             normalized_correct = correct_answer.upper()
             for index, (letter, content) in enumerate(choices):
                 normalized_letter = letter.strip().upper()
+                clean_content = normalizer.clean_text(content)
                 is_correct = int(
                     normalized_correct == normalized_letter
-                    or correct_answer.strip() == content.strip()
+                    or correct_answer.strip().upper() == clean_content.strip().upper()
                 )
                 choice_hash = hashlib.sha256(
                     f"{question_id}:{index}:{normalized_letter}".encode("utf-8")
@@ -345,7 +351,7 @@ def ingest_questions(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
                         f"opensat_c_{choice_hash}",
                         question_id,
                         normalized_letter,
-                        content,
+                        clean_content,
                         is_correct,
                     ),
                 )

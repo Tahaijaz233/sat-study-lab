@@ -175,6 +175,27 @@ class TestOpenSATIngestion(unittest.TestCase):
             ).fetchone()[0]
         self.assertEqual(section, "Reading & Writing")
 
+    def test_ingest_cleans_passage_trailing_question(self):
+        sample = {
+            "domain": "Craft and Structure",
+            "_section_hint": "Reading & Writing",
+            "difficulty": "medium",
+            "question": {
+                "question": "The author's organization is intended to",
+                "paragraph": "A historical text about sports. What is the author's structure?",
+                "choices": {"A": "Yes", "B": "No"},
+                "correct_answer": "A",
+                "explanation": "Correct",
+            },
+        }
+        opensat.ingest_questions([sample])
+        with get_db() as conn:
+            passage = conn.execute("SELECT content FROM passages").fetchone()[0]
+        self.assertEqual(passage, "A historical text about sports.")
+
+    def test_desmos_api_key_configuration(self):
+        self.assertTrue(bool(config.DESMOS_API_KEY))
+
 
 class TestPostgresCompatibility(unittest.TestCase):
     def test_translates_question_mark_parameters(self):

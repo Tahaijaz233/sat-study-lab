@@ -427,6 +427,62 @@ def get_db():
         conn.close()
 
 
+def repair_passage_and_question_data(conn):
+    """Idempotently clean up legacy passage trailing questions and unicode artifacts."""
+    try:
+        from app.agents.normalization import NormalizationAgent
+        normalizer = NormalizationAgent()
+        cursor = conn.cursor()
+
+        # 1. Clean passages
+        passages = cursor.execute("SELECT id, content FROM passages").fetchall()
+        for row in passages:
+            pid = row[0] if isinstance(row, (tuple, list)) else row['id']
+            content = row[1] if isinstance(row, (tuple, list)) else row['content']
+            if not content:
+                continue
+            cleaned = normalizer.clean_passage(content)
+            if cleaned != content:
+                if not cleaned:
+                    cursor.execute("UPDATE questions SET passage_id = NULL WHERE passage_id = ?", (pid,))
+                    cursor.execute("DELETE FROM passages WHERE id = ?", (pid,))
+                else:
+                    word_count = len(cleaned.split())
+                    cursor.execute(
+                        "UPDATE passages SET content = ?, word_count = ? WHERE id = ?",
+                        (cleaned, word_count, pid),
+                    )
+
+        # 2. Clean questions
+        questions = cursor.execute("SELECT id, prompt, answer_explanation, correct_answer_value FROM questions").fetchall()
+        for row in questions:
+            qid = row[0] if isinstance(row, (tuple, list)) else row['id']
+            prompt = row[1] if isinstance(row, (tuple, list)) else row['prompt']
+            explanation = row[2] if isinstance(row, (tuple, list)) else row['answer_explanation']
+            correct_val = row[3] if isinstance(row, (tuple, list)) else row['correct_answer_value']
+
+            c_prompt = normalizer.clean_text(prompt)
+            c_expl = normalizer.clean_text(explanation)
+            c_val = normalizer.clean_text(correct_val)
+
+            if c_prompt != prompt or c_expl != explanation or c_val != correct_val:
+                cursor.execute(
+                    "UPDATE questions SET prompt = ?, answer_explanation = ?, correct_answer_value = ? WHERE id = ?",
+                    (c_prompt, c_expl, c_val, qid),
+                )
+
+        # 3. Clean choices
+        choices = cursor.execute("SELECT id, content FROM choices").fetchall()
+        for row in choices:
+            cid = row[0] if isinstance(row, (tuple, list)) else row['id']
+            content = row[1] if isinstance(row, (tuple, list)) else row['content']
+            c_content = normalizer.clean_text(content)
+            if c_content != content:
+                cursor.execute("UPDATE choices SET content = ? WHERE id = ?", (c_content, cid))
+    except Exception as e:
+        print(f"[SAT Study Lab] Data repair skipped: {e}")
+
+
 def init_db():
     with get_db() as conn:
         if is_postgres():
@@ -459,3 +515,4 @@ def init_db():
             ) AND section != 'Reading & Writing'
             """
         )
+        repair_passage_and_question_data(conn)

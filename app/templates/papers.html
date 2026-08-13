@@ -2,6 +2,12 @@
 
 {% block title %}Practice Papers - SAT Study Lab{% endblock %}
 
+{% block extra_head %}
+{% if desmos_api_key %}
+<script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey={{ desmos_api_key }}"></script>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto flex flex-col h-full space-y-4">
     <!-- Header & Timer -->
@@ -32,7 +38,7 @@
     <div class="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row relative min-h-[60vh]">
         
         <!-- Left Pane (Passage / Stimulus) -->
-        <div class="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 custom-scrollbar text-lg leading-relaxed text-gray-800 dark:text-gray-200">
+        <div id="stimulusPane" class="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 custom-scrollbar text-lg leading-relaxed text-gray-800 dark:text-gray-200">
             <div id="stimulusContent" class="prose dark:prose-invert max-w-none">
                 <div class="text-center py-12 text-gray-500">
                     <i data-lucide="book-open" class="w-12 h-12 mx-auto mb-3 text-indigo-400"></i>
@@ -42,7 +48,7 @@
         </div>
 
         <!-- Right Pane (Question & Answers) -->
-        <div class="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto custom-scrollbar flex flex-col justify-between">
+        <div id="questionPane" class="w-full md:w-1/2 p-6 md:p-8 overflow-y-auto custom-scrollbar flex flex-col justify-between">
             <div>
                 <div class="flex justify-between items-start mb-6">
                     <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-sm font-bold text-indigo-800 dark:text-indigo-300" id="currentQNum">1</span>

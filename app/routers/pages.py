@@ -2,6 +2,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from app.config import config
 from app.database import get_db
 from app.agents.analytics_agent import AnalyticsAgent
 
@@ -28,7 +29,11 @@ async def dashboard(request: Request):
 
 @router.get("/papers", response_class=HTMLResponse)
 async def practice_papers(request: Request):
-    return templates.TemplateResponse(request=request, name="papers.html", context={})
+    return templates.TemplateResponse(
+        request=request,
+        name="papers.html",
+        context={"desmos_api_key": config.DESMOS_API_KEY}
+    )
 
 @router.get("/bank", response_class=HTMLResponse)
 async def question_bank(request: Request):

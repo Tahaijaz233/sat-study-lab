@@ -30,6 +30,25 @@ class TestAgents(unittest.TestCase):
         self.assertEqual(q_norm["section"], "Reading & Writing")
         self.assertIn("content_hash", q_norm)
 
+    def test_normalization_clean_text_and_passage(self):
+        agent = NormalizationAgent()
+        
+        # Test clean_text
+        corrupted = "It\ufffdll be \"quoted\" and \\'escaped\\'"
+        self.assertEqual(agent.clean_text(corrupted), "It'll be \"quoted\" and 'escaped'")
+        
+        # Test clean_passage stripping trailing questions
+        raw_passage = (
+            "The author writes about the history of a particular sport, starting with the earliest known uses of the sport. "
+            "What is the most likely reason why the author structures the passage in this way?"
+        )
+        expected = "The author writes about the history of a particular sport, starting with the earliest known uses of the sport."
+        self.assertEqual(agent.clean_passage(raw_passage), expected)
+        
+        # Test standalone question becomes empty passage
+        standalone = "What is the primary purpose of the text?"
+        self.assertEqual(agent.clean_passage(standalone), "")
+
     def test_paper_builder_domain_quotas(self):
         """Test that PaperBuilderAgent has the correct domain quotas defined."""
         agent = PaperBuilderAgent()
